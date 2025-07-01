@@ -1,0 +1,46 @@
+## Downloading Project Data
+
+This project branch contains a script to automatically download all required data files from a shared Google Drive folder.
+Data files are input and output files of all codes that have been used for the study (located in the notebooks branch).
+
+### How to Use
+
+#### 1. Clone the Repository
+
+First, open a terminal (e.g., Git Bash on Windows, or Terminal on macOS/Linux), and run:
+
+```bash
+git clone https://github.com/kummer-lab/seed-mirna-functional-analysis.git
+cd seed-mirna-functional-analysis
+git checkout data
+
+This will:
+
+Download the repository to your local machine
+Switch to the data branch, which contains the data download script
+
+2. Install gdown
+Make sure you have Python and pip installed, then run:
+
+```bash
+pip install gdown
+
+3. Run the Download Script
+In the same terminal:
+
+```bash
+./download_data.sh
+
+This will:
+
+Download all required data files from a public Google Drive folder
+Save files in the correct structure:
+
+General data files → stored in the root of the repository
+
+Prediction files for top 5 validated miRNA → stored in: Predictions - Top 5 validated miRNA/
+
+### Notes
+All files are publicly accessible — no Google login required
+If any download fails, you can re-run the script safely
+
