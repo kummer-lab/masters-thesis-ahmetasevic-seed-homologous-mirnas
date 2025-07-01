@@ -17,7 +17,7 @@ Renamed from:
 miRTarBase_SE_WR.csv
 Source: miRTarBase 2025
 
-🔹 Predictions - Top 5 Validated miRNA
+### Predictions - Top 5 Validated miRNA
 Files inside the Predictions - Top 5 validated miRNA folder are named to reflect:
 
 The miRNA they relate to (e.g. hsa-miR-21-5p)
