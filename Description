@@ -1,0 +1,33 @@
+This branch contains all input and output files referenced by the codes in the notebooks branch of this repository.
+
+All data is linked to public sources in Chapter 2.1 of the Master thesis.
+
+Download instructions can be found in the instructions file
+
+### Additional Information
+Renamed Files:
+
+DIANATarBase_allvalidations.tsv
+Renamed from:
+Homo_sapiens_TarBase_v9.tsv.gz
+Source: DIANA TarBase v9
+
+miRTarBase_allstrongvalidations.xlsx
+Renamed from:
+miRTarBase_SE_WR.csv
+Source: miRTarBase 2025
+
+🔹 Predictions - Top 5 Validated miRNA
+Files inside the Predictions - Top 5 validated miRNA folder are named to reflect:
+
+The miRNA they relate to (e.g. hsa-miR-21-5p)
+
+The database used for predictions:
+
+Diana microT CDS
+
+mirmap
+
+miRDB
+(Note: miRDB corresponds to the MirTarget algorithm)
+
