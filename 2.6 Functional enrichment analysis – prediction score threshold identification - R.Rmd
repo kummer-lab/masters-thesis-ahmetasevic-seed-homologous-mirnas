@@ -1,0 +1,95 @@
+---
+title: "Semantic similarity - threshold setting"
+author: "Your Name"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r}
+library(readr)
+library(dplyr)
+library(gprofiler2)
+library(GOSemSim)
+library(org.Hs.eg.db)
+library(openxlsx)
+```
+
+```{r}
+mirnas <- c('hsa-miR-21-5p', 'hsa-miR-34a-5p', 'hsa-miR-124-3p', 'hsa-miR-145-5p', 'hsa-miR-155-5p')
+
+microt_data <- read_tsv("interactions_human.microT.mirbase.txt", col_types = cols())
+
+filtered_data <- microt_data %>%
+  filter(mirna %in% mirnas)
+```
+
+```{r}
+go_ic <- godata('org.Hs.eg.db', ont = "BP")
+
+thresholds <- seq(0.5, 1.0, by = 0.05)
+```
+
+```{r}
+all_miRNA_results <- list()
+
+for (mir in mirnas) {
+  mir_results <- list()
+  
+  for (thresh in thresholds) {
+    genes <- filtered_data %>%
+      filter(mirna == mir & interaction_score >= thresh) %>%
+      pull(ensembl_gene_id) %>%
+      unique()
+    
+    if (length(genes) > 0) {
+      gostres <- gost(genes, organism = "hsapiens", sources = c("GO:BP", "GO:MF", "GO:CC"))
+      
+      if (!is.null(gostres$result)) {
+        go_terms <- gostres$result %>%
+          pull(term_id)
+        
+        mir_results[[as.character(thresh)]] <- go_terms
+      } else {
+        mir_results[[as.character(thresh)]] <- character(0)
+      }
+    } else {
+      mir_results[[as.character(thresh)]] <- character(0)
+    }
+  }
+  
+  # Semantic similarity to 0.95 threshold
+  ref_terms <- mir_results[["0.95"]]
+  sim_scores <- sapply(mir_results, function(terms) {
+    if (length(terms) > 0 && length(ref_terms) > 0) {
+      mgoSim(terms, ref_terms, semData = go_ic, measure = "Wang", combine = "BMA")
+    } else {
+      NA
+    }
+  })
+  
+  mir_df <- data.frame(
+    Threshold = as.numeric(names(sim_scores)),
+    Similarity = sim_scores
+  )
+  
+  all_miRNA_results[[mir]] <- mir_df
+}
+```
+
+```{r}
+wb <- createWorkbook()
+
+for (mir in names(all_miRNA_results)) {
+  addWorksheet(wb, mir)
+  writeData(wb, mir, all_miRNA_results[[mir]])
+}
+
+saveWorkbook(wb, "miRNA semantic similarity - threshold setting.xlsx", overwrite = TRUE)
+```
+
+
+

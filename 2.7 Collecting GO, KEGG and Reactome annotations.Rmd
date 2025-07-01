@@ -1,0 +1,76 @@
+---
+title: "Clustering all of the annotations"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(org.Hs.eg.db)
+library(GOSemSim)
+library(msigdbr)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(openxlsx)
+library(readxl)
+library(writexl)
+```
+
+## Step 1: Download Gene Sets for All Pathway Terms
+
+```{r}
+ic_map_bp <- godata("org.Hs.eg.db", ont = "BP", computeIC = TRUE)@IC
+ic_map_mf <- godata("org.Hs.eg.db", ont = "MF", computeIC = TRUE)@IC
+ic_map_cc <- godata("org.Hs.eg.db", ont = "CC", computeIC = TRUE)@IC
+```
+
+```{r}
+get_GO_terms <- function(ont) {
+  ic_map <- switch(ont,
+                   "BP" = ic_map_bp,
+                   "MF" = ic_map_mf,
+                   "CC" = ic_map_cc,
+                   stop("Invalid ontology: choose 'BP', 'MF', or 'CC'"))
+
+  suppressWarnings(suppressMessages({
+    go_data <- AnnotationDbi::select(GO.db::GO.db,
+      keys = keys(GO.db::GO.db, keytype = "GOID"),
+      columns = c("TERM", "ONTOLOGY"),
+      keytype = "GOID") %>%
+      filter(ONTOLOGY == ont) %>%
+      mutate(source = paste0("GO:", ont)) %>%
+      rename(term_id = GOID, term_name = TERM) %>%
+      distinct(term_id, .keep_all = TRUE)
+
+    term2gene <- AnnotationDbi::select(org.Hs.eg.db,
+      keys = go_data$term_id,
+      columns = "ENSEMBL",
+      keytype = "GOALL") %>%
+      filter(!is.na(ENSEMBL)) %>%
+      rename(term_id = GOALL, gene = ENSEMBL)
+
+    term2gene <- term2gene %>%
+      inner_join(go_data, by = "term_id") %>%
+      mutate(IC = ic_map[term_id]) %>%
+      filter(!is.na(IC) & IC > 6) # filtering only for information content (IC) over 6
+
+    return(term2gene)
+  }))
+}
+
+go_bp <- get_GO_terms("BP")
+go_mf <- get_GO_terms("MF")
+go_cc <- get_GO_terms("CC")
+
+kegg_full_ensembl <- read_xlsx("KEGG_Full_Ensembl.xlsx")
+reactome_full_ensembl <- read_xlsx("Reactome_Full_Ensembl.xlsx")
+
+all_terms <- bind_rows(go_bp, go_mf, go_cc, kegg_full_ensembl, reactome_full_ensembl)
+```
+
+```{r}
+write_xlsx(go_bp, path = "GO_BP.xlsx")
+write_xlsx(go_mf, path = "GO_MF.xlsx")
+write_xlsx(go_cc, path = "GO_CC.xlsx")
+write_xlsx(all_terms, path = "All pathway annotations.xlsx")
+```

@@ -1,0 +1,330 @@
+---
+title: "Pairwise miRNA Functional Similarity Based on Predicted Targets"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(gprofiler2)
+library(dplyr)
+library(tidyr)
+library(readxl)
+library(tibble)
+library(progress)
+library(writexl)
+library(GOSemSim)
+library(org.Hs.eg.db)
+library(stringr)
+library(purrr)
+```
+
+```{r}
+# Load DIANA interactions over 0.7
+diana_df <- read.delim("DIANA-microT-CDS - human interactions over 0.7.txt")
+
+gene_lists <- diana_df %>%
+  group_by(mirna) %>%
+  summarise(genes = list(unique(ensembl_gene_id)), .groups = "drop") %>%
+  deframe()
+```
+
+```{r}
+# Load predefined GO/Pathway clusters
+clustered_terms <- read_excel("Clustered_Pathways_kappa0.25.xlsx")
+
+cluster_map <- clustered_terms %>%
+  dplyr::select(term_id, cluster) %>%
+  distinct()
+```
+
+```{r}
+# Load IC for all 3 ontologies
+godata_bp <- godata('org.Hs.eg.db', ont = "BP", computeIC = TRUE)
+godata_mf <- godata('org.Hs.eg.db', ont = "MF", computeIC = TRUE)
+godata_cc <- godata('org.Hs.eg.db', ont = "CC", computeIC = TRUE)
+
+ic_map <- c(
+  setNames(godata_bp@IC, names(godata_bp@IC)),
+  setNames(godata_mf@IC, names(godata_mf@IC)),
+  setNames(godata_cc@IC, names(godata_cc@IC))
+)
+```
+
+```{r}
+# Function to run enrichment and assign terms to predefined clusters
+run_gprofiler_to_clusters <- function(genes) {
+  result <- tryCatch({
+    gostres <- gost(
+      query = genes,
+      organism = "hsapiens",
+      sources = c("GO:BP", "GO:MF", "GO:CC", "REAC", "KEGG"),
+      correction_method = "fdr"
+    )$result
+
+    if (is.null(gostres)) return(character())
+
+    gostres <- gostres %>%
+      mutate(IC = ifelse(grepl("^GO:", term_id), ic_map[term_id], NA)) %>%
+      filter(!is.na(IC) & IC > 6 | !grepl("^GO:", term_id))
+
+    merged <- inner_join(gostres, cluster_map, by = "term_id")
+
+    unique(merged$cluster)
+  }, error = function(e) character())
+
+  return(result)
+}
+```
+
+```{r}
+pb <- progress_bar$new(total = length(gene_lists), format = "[:bar] :current/:total :message")
+
+enrich_results <- list()
+for (miRNA in names(gene_lists)) {
+  enrich_results[[miRNA]] <- run_gprofiler_to_clusters(gene_lists[[miRNA]])
+  pb$tick(tokens = list(message = miRNA))
+}
+```
+
+```{r}
+# Identify empty enrichment results (length == 0)
+empty_mirnas <- names(enrich_results)[sapply(enrich_results, function(x) length(x) == 0)]
+
+cat("Number of miRNAs with no enriched clusters (length 0):", length(empty_mirnas), "\n")
+```
+
+```{r}
+# Export enrich_results (cluster annotations for miRNA) 
+enrich_df <- data.frame(
+  miRNA = names(enrich_results),
+  term_ids = sapply(enrich_results, function(terms) {
+    if (length(terms) == 0) return(NA_character_)
+    paste(terms, collapse = ";")
+  }),
+  stringsAsFactors = FALSE
+)
+
+# Write to Excel
+write_xlsx(enrich_df, "miRNA clusters - ALL miRNA.xlsx")
+```
+
+```{r}
+# Exclude empty miRNAs
+valid_mirnas <- setdiff(names(enrich_results), empty_mirnas)
+
+miRNA_pairs <- combn(valid_mirnas, 2, simplify = FALSE)
+
+pb <- progress_bar$new(total = length(miRNA_pairs), format = "[:bar] :current/:total :message")
+
+jaccard_list <- lapply(miRNA_pairs, function(pair) {
+  a <- enrich_results[[pair[1]]]
+  b <- enrich_results[[pair[2]]]
+
+  # Skip if either has ≤ 10 clusters
+  if (length(a) <= 10 || length(b) <= 10) return(NULL)
+
+  # Modified Jaccard: intersection / min(|A|, |B|)
+  intersect_len <- length(intersect(a, b))
+  min_size <- min(length(a), length(b))
+  jaccard <- intersect_len / min_size
+
+  pb$tick(tokens = list(message = paste(pair[1], pair[2])))
+
+  tibble(miRNA1 = pair[1], miRNA2 = pair[2], Jaccard = jaccard)
+})
+
+# Bind all non-NULL results
+jaccard_df <- bind_rows(jaccard_list)
+```
+
+# Original code above excluded 1 miRNA that should be included, so it was readded in the chunk below (hsa-miR-155-3p)
+
+```{r}
+write.table(jaccard_df,file = "jaccard_results.txt",sep = "\t",quote = FALSE,row.names = FALSE)
+```
+
+```{r}
+jaccard_df <- read.table("jaccard_results.txt", header = TRUE, sep = "\t", stringsAsFactors = FALSE)
+```
+
+```{r}
+# Load miRBase annotation
+mirbase_annot <- read_excel("all_human_mature_miRNAs_miRbase22.1.xlsx")
+```
+
+```{r}
+# Keep relevant columns
+annot <- mirbase_annot %>%
+  dplyr::select(ID, Sequence, starts_with("Family_Pos"), FirstBase, Pos13_16) %>%
+  dplyr::rename(miRNA = ID, Mature_sequence = Sequence)
+
+# Join annotations for miRNA1 and miRNA2
+annotated_df <- jaccard_df %>%
+  dplyr::left_join(annot, by = c("miRNA1" = "miRNA")) %>%
+  dplyr::rename(Sequence_miRNA1 = Mature_sequence,
+                Family_Pos1_8_1 = Family_Pos1_8, Family_Pos2_8_1 = Family_Pos2_8,
+                Family_Pos1_7_1 = Family_Pos1_7, Family_Pos2_7_1 = Family_Pos2_7,
+                Family_Pos3_8_1 = Family_Pos3_8, Family_Pos1_6_1 = Family_Pos1_6,
+                FirstBase1 = FirstBase, Pos13_16_1 = Pos13_16) %>%
+  dplyr::left_join(annot, by = c("miRNA2" = "miRNA")) %>%
+  dplyr::rename(Sequence_miRNA2 = Mature_sequence,
+                Family_Pos1_8_2 = Family_Pos1_8, Family_Pos2_8_2 = Family_Pos2_8,
+                Family_Pos1_7_2 = Family_Pos1_7, Family_Pos2_7_2 = Family_Pos2_7,
+                Family_Pos3_8_2 = Family_Pos3_8, Family_Pos1_6_2 = Family_Pos1_6,
+                FirstBase2 = FirstBase, Pos13_16_2 = Pos13_16)
+```
+
+```{r}
+library(dplyr)
+library(stringr)
+
+final_df <- annotated_df %>%
+  mutate(
+    Family_1_8 = if_else(
+      Family_Pos1_8_1 == Family_Pos1_8_2 &
+        !str_detect(Family_Pos1_8_1, "Family 0") &
+        !str_detect(Family_Pos1_8_2, "Family 0"),
+      "Yes", "No"
+    ),
+    Family_2_8 = if_else(
+      Family_Pos2_8_1 == Family_Pos2_8_2 &
+        !str_detect(Family_Pos2_8_1, "Family 0") &
+        !str_detect(Family_Pos2_8_2, "Family 0"),
+      "Yes", "No"
+    ),
+    Family_1_7 = if_else(
+      Family_Pos1_7_1 == Family_Pos1_7_2 &
+        !str_detect(Family_Pos1_7_1, "Family 0") &
+        !str_detect(Family_Pos1_7_2, "Family 0"),
+      "Yes", "No"
+    ),
+    Family_2_7 = if_else(
+      Family_Pos2_7_1 == Family_Pos2_7_2 &
+        !str_detect(Family_Pos2_7_1, "Family 0") &
+        !str_detect(Family_Pos2_7_2, "Family 0"),
+      "Yes", "No"
+    ),
+    Family_3_8 = if_else(
+      Family_Pos3_8_1 == Family_Pos3_8_2 &
+        !str_detect(Family_Pos3_8_1, "Family 0") &
+        !str_detect(Family_Pos3_8_2, "Family 0"),
+      "Yes", "No"
+    ),
+    Family_1_6 = if_else(
+      Family_Pos1_6_1 == Family_Pos1_6_2 &
+        !str_detect(Family_Pos1_6_1, "Family 0") &
+        !str_detect(Family_Pos1_6_2, "Family 0"),
+      "Yes", "No"
+    )
+  )
+```
+
+```{r}
+# Select only final columns for export
+final_df <- final_df %>%
+  dplyr::select(
+    miRNA1, Sequence_miRNA1, miRNA2, Sequence_miRNA2, Jaccard,
+    Family_1_8, Family_2_8, Family_1_7, Family_2_7, Family_3_8, Family_1_6,
+    FirstBase1, FirstBase2, Pos13_16_1, Pos13_16_2
+  )
+```
+
+```{r}
+family_cols <- c("Family_1_8", "Family_2_8", "Family_1_7",
+                 "Family_2_7", "Family_3_8", "Family_1_6")
+
+final_df %>%
+  dplyr::select(all_of(family_cols)) %>%
+  summarise(across(everything(), ~ table(factor(., levels = c("Yes", "No")))))
+```
+
+```{r}
+miRNA_clusters <- read_excel("miRNA clusters - ALL miRNA.xlsx")
+
+# Count number of clusters per miRNA (count semicolons + 1)
+miRNA_clusters <- miRNA_clusters %>%
+  mutate(
+    Cluster_Count = str_count(term_ids, ";") + 1
+  )
+
+# Summarise
+summary_df <- miRNA_clusters %>%
+  summarise(
+    Total_miRNAs = n(),
+    With_10_or_less = sum(Cluster_Count <= 10, na.rm = TRUE),
+    With_more_than_10 = sum(Cluster_Count > 10, na.rm = TRUE)
+  )
+
+print(summary_df)
+```
+
+## Adding missing miRNA to jaccard_df
+
+```{r}
+miRNA_clusters <- miRNA_clusters %>%
+  mutate(Cluster_Count = str_count(term_ids, ";") + 1)
+
+# Step 2: Filter to miRNAs with >10 clusters
+miRNAs_gt10_df <- miRNA_clusters %>%
+  filter(Cluster_Count > 10)
+
+# Step 3: Extract clusters for hsa-miR-155-3p (missing one)
+target_miRNA <- "hsa-miR-155-3p"
+target_clusters <- miRNAs_gt10_df %>%
+  filter(miRNA == target_miRNA) %>%
+  pull(term_ids) %>%
+  str_split(";") %>%
+  unlist() %>%
+  unique()
+
+comparison_df <- miRNAs_gt10_df %>%
+  filter(miRNA != target_miRNA) %>%
+  mutate(
+    comparison_clusters = str_split(term_ids, ";")
+  ) %>%
+  mutate(
+    Jaccard = map_dbl(comparison_clusters, ~ {
+      length(intersect(target_clusters, .x)) / min(length(target_clusters), length(.x))
+    })
+  ) %>%
+  transmute(
+    miRNA1 = miRNA,
+    miRNA2 = target_miRNA,
+    Jaccard
+  )
+
+jaccard_df <- bind_rows(jaccard_df, comparison_df)
+```
+
+
+```{r}
+total_unique_mirnas <- union(final_df$miRNA1, final_df$miRNA2) %>% unique() %>% length()
+
+mirna_seed_homolog_counts <- map_dfr(family_cols, function(col) {
+  matched <- final_df %>% filter(.data[[col]] == "Yes")
+  unique_mirnas <- union(matched$miRNA1, matched$miRNA2) %>% unique()
+  tibble(
+    Family_Column = col,
+    miRNAs_with_seed_homolog = paste0(length(unique_mirnas), "/", total_unique_mirnas)
+  )
+})
+```
+
+
+```{r}
+# Save final result as tab-delimited text
+write.table(final_df, "Pairwise Cluster Comparisons - FINAL.txt", sep = "\t", row.names = FALSE, quote = FALSE)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+

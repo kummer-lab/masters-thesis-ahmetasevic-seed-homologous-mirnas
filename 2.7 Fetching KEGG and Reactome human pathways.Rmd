@@ -1,0 +1,111 @@
+---
+title: "Fetch Full KEGG and Reactome Pathways"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(KEGGREST)
+library(reactome.db)
+library(org.Hs.eg.db)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(writexl)
+```
+
+```{r}
+# List all human KEGG pathways
+kegg_pathways <- keggList("pathway", "hsa")  # "hsa" = Homo sapiens
+
+length(kegg_pathways)  
+
+pathway_ids <- names(kegg_pathways)
+
+get_genes_for_pathway <- function(pathway_id) {
+  tryCatch({
+    res <- keggGet(pathway_id)
+    if (length(res) == 0) return(NULL)
+
+    genes_info <- res[[1]]$GENE
+    if (is.null(genes_info)) return(NULL)
+
+    genes <- genes_info[seq(2, length(genes_info), 2)]
+    data.frame(
+      term_id = pathway_id,
+      gene_symbol_dirty = genes,
+      stringsAsFactors = FALSE
+    )
+  }, error = function(e) {
+    NULL
+  })
+}
+
+kegg_gene_sets <- do.call(rbind, lapply(pathway_ids, get_genes_for_pathway))
+
+kegg_term_names <- tibble(
+  term_id = pathway_ids,
+  term_name = kegg_pathways
+)
+
+kegg_full_dirty <- kegg_gene_sets %>%
+  left_join(kegg_term_names, by = "term_id") %>%
+  mutate(source = "KEGG")
+```
+
+```{r}
+kegg_full_clean <- kegg_full_dirty %>%
+  mutate(gene_symbol = str_extract(gene_symbol_dirty, "^[^;]+"))
+
+valid_symbols <- keys(org.Hs.eg.db, keytype = "SYMBOL")
+
+kegg_cleaned <- kegg_full_clean %>%
+  filter(gene_symbol %in% valid_symbols)
+
+# Map gene symbols to Ensembl IDs
+symbol2ensembl <- AnnotationDbi::select(org.Hs.eg.db,
+                                        keys = unique(kegg_cleaned$gene_symbol),
+                                        columns = "ENSEMBL",
+                                        keytype = "SYMBOL")
+
+kegg_full_ensembl <- kegg_cleaned %>%
+  left_join(symbol2ensembl, by = c("gene_symbol" = "SYMBOL")) %>%
+  filter(!is.na(ENSEMBL)) %>%
+  select(term_id, term_name, gene = ENSEMBL, source)
+```
+
+```{r}
+# Get all Reactome pathways linked to Entrez IDs
+reactome_mappings <- AnnotationDbi::select(reactome.db,
+                                           keys = keys(reactome.db, keytype = "PATHID"),
+                                           columns = c("PATHNAME", "ENTREZID"),
+                                           keytype = "PATHID")
+
+# Filter human annotations
+reactome_mappings <- reactome_mappings %>%
+  filter(str_detect(PATHID, "^R-HSA-")) %>%
+  filter(!is.na(ENTREZID))
+
+# Map Entrez IDs to Ensembl IDs
+entrez2ensembl <- AnnotationDbi::select(org.Hs.eg.db,
+                                        keys = unique(reactome_mappings$ENTREZID),
+                                        columns = "ENSEMBL",
+                                        keytype = "ENTREZID")
+
+reactome_full_ensembl <- reactome_mappings %>%
+  left_join(entrez2ensembl, by = "ENTREZID") %>%
+  rename(
+    term_id = PATHID,
+    term_name = PATHNAME,
+    gene = ENSEMBL
+  ) %>%
+  mutate(source = "REAC") %>%
+  filter(!is.na(gene))
+```
+
+```{r}
+write_xlsx(kegg_full_ensembl, "KEGG_Full_Ensembl.xlsx")
+write_xlsx(reactome_full_ensembl, "Reactome_Full_Ensembl.xlsx")
+```
+
+

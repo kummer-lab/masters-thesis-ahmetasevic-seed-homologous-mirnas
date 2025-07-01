@@ -1,0 +1,116 @@
+---
+title: "Extract Human miRNAs from miRBase"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(openxlsx)
+```
+
+```{r}
+fasta_file <- "mature.fa"
+```
+
+```{r}
+lines <- readLines(fasta_file)
+```
+
+```{r}
+miRNA_names <- c()
+miRNA_seqs <- c()
+
+for (i in seq(1, length(lines), by = 2)) {
+  header <- lines[i]
+  sequence <- lines[i + 1]
+  
+  # Check if it's a human miRNA (hsa- prefix)
+  if (startsWith(header, ">hsa-")) {
+    miRNA_names <- c(miRNA_names, sub("^>", "", header))
+    miRNA_seqs <- c(miRNA_seqs, sequence)
+  }
+}
+
+human_mirnas <- tibble(
+  Name = miRNA_names,
+  Sequence = miRNA_seqs
+)
+
+head(human_mirnas)
+```
+
+```{r}
+human_mirnas <- human_mirnas %>%
+  separate(Name, into = c("ID", "Accession", "Species1", "Species2", "Description"), sep = " ", extra = "merge") %>%
+  mutate(Species = paste(Species1, Species2)) %>%
+  dplyr::select(ID, Accession, Species, Description, Sequence)
+```
+
+```{r}
+high_conf_headers <- read_lines("mature_high_conf.fa") %>%
+  .[grepl("^>", .)]
+
+high_conf_accessions <- sub("^>\\S+\\s+(\\S+)", "\\1", high_conf_headers)
+
+human_mirnas <- human_mirnas %>%
+  mutate(HighConfidence = ifelse(Accession %in% high_conf_accessions, "Yes", "No"))
+```
+
+## Seed defining (and supplementary sequences)
+
+```{r}
+human_mirnas <- human_mirnas %>%
+  mutate(
+    Pos1_8    = substr(Sequence, 1, 8),
+    Pos2_8    = substr(Sequence, 2, 8),
+    Pos1_7    = substr(Sequence, 1, 7),
+    Pos2_7    = substr(Sequence, 2, 7),
+    Pos3_8    = substr(Sequence, 3, 8),
+    Pos1_6    = substr(Sequence, 1, 6),
+    FirstBase = substr(Sequence, 1, 1),
+    Pos13_16  = substr(Sequence, 13, 16)
+  )
+```
+
+```{r}
+assign_families <- function(vec, label_suffix) {
+  tbl <- table(vec)
+  sequence_groups <- names(tbl)
+  multi_seqs <- sequence_groups[tbl > 1]
+  single_seqs <- sequence_groups[tbl == 1]
+  
+  new_family_ids <- setNames(seq_along(multi_seqs), multi_seqs)
+  
+  family_labels <- sapply(vec, function(x) {
+    if (x %in% single_seqs) {
+      paste0("Family 0; ", label_suffix)
+    } else {
+      paste0("Family ", new_family_ids[[x]], "; ", label_suffix)
+    }
+  })
+  
+  return(family_labels)
+}
+```
+
+```{r}
+human_mirnas <- human_mirnas %>%
+  mutate(
+    Family_Pos1_8 = assign_families(Pos1_8, "1-8"),
+    Family_Pos2_8 = assign_families(Pos2_8, "2-8"),
+    Family_Pos1_7 = assign_families(Pos1_7, "1-7"),
+    Family_Pos2_7 = assign_families(Pos2_7, "2-7"),
+    Family_Pos3_8 = assign_families(Pos3_8, "3-8"),
+    Family_Pos1_6 = assign_families(Pos1_6, "1-6")
+  )
+```
+
+```{r}
+# Save to Excel
+write.xlsx(human_mirnas, file = "all_human_mature_miRNAs_miRbase22.1.xlsx", rowNames = FALSE)
+```
+
