@@ -41,6 +41,6 @@ General data files → stored in the root of the repository
 Prediction files for top 5 validated miRNA → stored in: Predictions - Top 5 validated miRNA/
 
 ### Notes
-All files are publicly accessible — no Google login required
+All files are publicly accessible - no Google login required
 If any download fails, you can re-run the script safely
 
