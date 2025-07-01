@@ -20,7 +20,7 @@ The project focuses on evaluating the functional overlap and complementary effec
   - Python Jupyter Notebooks (`.ipynb`)
   - R Markdown files (`.Rmd`)
 
-  Each notebook begins with a note linking it to the **Methods chapter section** of the thesis that it implements. These scripts cover preprocessing, clustering of functional annotation terms, cluster similarity computation, pathway enrichment, and prediction analysis.
+  Each notebook begins with a note linking it to the **Methods chapter section** of the thesis that it implements. These scripts cover preprocessing, prediction analysis and comparison to experimentally validated data, pathway enrichment, clustering of functional annotation terms, cluster similarity computation and subsequent cluster overlap analyses.
   For more information, read the corresponding Methods chapter of the thesis. 
 
 ---
