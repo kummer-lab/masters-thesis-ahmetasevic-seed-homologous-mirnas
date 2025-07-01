@@ -5,7 +5,7 @@ This repository contains the code and data associated with the Master's thesis o
 **"Analysis of functional redundancy and divergence of seed-homologous microRNAs using a bioinformatical approach"**  
 Medical University of Innsbruck, Institute of Physiology (2025)
 
-The project focuses on evaluating the functional overlap and complementary effects of miRNAs that share seed sequences, particularly in terms of pathway targeting and biological relevance. Predicted miRNA–mRNA interactions were analyzed using pathway enrichment and functional similarity approaches.
+The project focuses on evaluating the functional overlap and complementary effects of miRNAs that share seed sequences, particularly in terms of pathway targeting and biological relevance. Predicted miRNA-mRNA interactions were analyzed using pathway enrichment and functional similarity approaches.
 
 ---
 
