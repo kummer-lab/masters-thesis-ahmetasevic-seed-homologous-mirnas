@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# Create folder for Predictions data
+mkdir -p "Predictions - Top 5 validated miRNA"
+
+# Download files from the main Data folder
+gdown --id 14FdXWAb-C-ti0TsUz2gWCL_j0gUraZpO -O "all_human_mature_miRNAs_miRbase22.1.xlsx"
+gdown --id 1nw2iTg5jxh5XOYVk2LGHL-MoS29vwBHE -O "Clustered_Pathways_kappa0.25.xlsx"
+gdown --id 1Vrmu9an2bQbrnDWPtU1hH1RZrHdcgChn -O "DIANA-microT-CDS - human interactions over 0.7.txt"
+gdown --id 1VuZGU9Cks1INafUlA1-2vrUzPmIGu2qY -O "DIANATarbase_allstrongvalidations.xlsx"
+gdown --id 1PAa0YyGinW-2vAzhV955Vdaxt-KUgRDs -O "DIANATarBase_allvalidations.tsv"
+gdown --id 1wkrv7lymHb5rYXhjwnuxMEhEpHLBbd4c -O "GO_BP.xlsx"
+gdown --id 1fzkDbkL47nn7VkBjy6TEA4eyjPTUPBgL -O "GO_CC.xlsx"
+gdown --id 1demLA0HEEMlRLGPMgB_uIDyQqfU5ou_0 -O "GO_MF.xlsx"
+gdown --id 1Cid6iP-YGkN9AxkasM4x5K_hdeGOoT5o -O "interactions_human.microT.mirbase.txt"
+gdown --id 1UMRSRzkUUquvHt4lg8gFsBpJwSQW-MpL -O "jaccard_results.txt"
+gdown --id 14EwMHiwwF8HdTBaQJ-9m70Oa9OOjj751 -O "KEGG_Full_Ensembl.xlsx"
+gdown --id 1T-I7dp8D9-HlikqNEGnCyCCzxaPp-qPp -O "mature_high_conf.fa"
+gdown --id 1v9gRJJIDfgffEziRmHVebjgnbkb4ZtmT -O "mature.fa"
+gdown --id 1goAFOaYQtliwhWDXdT7F3jcI0oxDIZ8d -O "miRDB_v6.0_prediction_result.txt"
+gdown --id 1ZD1JKCBwkoF49XFGxEDY-eiF8W2qftNp -O "mirmap_202203_homsap_targets_1to1_pt.csv.zst"
+gdown --id 1O7C4sPiZFx1sL0Pj-V4PFvI-MLVdBC06 -O "miRNA clusters - ALL miRNA.xlsx"
+gdown --id 1DSeBP9b7W5M4Ned8lXc8-i2ZHFrrjdSP -O "miRNA semantic similarity - threshold setting.xlsx"
+gdown --id 1jLPA5LJ2wYq2pvFFykp8ThjN7ba3yQnM -O "miRTarBase_allstrongvalidations.csv"
+gdown --id 1YjQhuyGjlu5Hut6vGL21WXR5L9B6U2K6 -O "MirTarget all human interactions.txt"
+gdown --id 1wZ3kiTVj-ubOPmynaSsDyPbpoVA5K-TX -O "Pairwise Cluster Comparisons - FINAL.txt"
+gdown --id 1vaJZS4gHQ1xX9ynFzJSBRQ6MIjcGaIAk -O "Reactome_Full_Ensembl.xlsx"
+gdown --id 1VwBuSsn6GZDJx-ROPMLuEDAnYNeLOq71 -O "TarBase_miRTarBase_unique_interactions.xlsx"
+gdown --id 1DqimlFjvyivkFLK-kyqT3pw2WLAZB-9E -O "hsa-miR-21-5p - Diana microT CDS.xlsx"
+
+# Download files from Predictions - Top 5 validated miRNA folder
+gdown --id 1FHZgEgLlnJxERqfIunZf6LnCD6kWcIAp -O "Predictions - Top 5 validated miRNA/hsa-miR-34a-5p - Diana microT CDS.xlsx"
+gdown --id 10UqtOc1mnhRG1EN3vZmh-53Dqb3I5CVj -O "Predictions - Top 5 validated miRNA/hsa-miR-34a-5p - miRDB.xlsx"
+gdown --id 1_wm-pHq_1DL7lMAtElQIDlzCapgZc_KD -O "Predictions - Top 5 validated miRNA/hsa-miR-34a-5p - mirmap.xlsx"
+gdown --id 1jlzdoaWPvPL6dQbiZWCF9gwHZIXpDoiv -O "Predictions - Top 5 validated miRNA/hsa-miR-124-3p - Diana microT CDS.xlsx"
+gdown --id 1sr4kUU9M5VuE0nYmEAnb4B_-d9qf8V8n -O "Predictions - Top 5 validated miRNA/hsa-miR-124-3p - miRDB.xlsx"
+gdown --id 1ax9V0_34_cxYeZxNRw1t_bCG3y6l0Q_N -O "Predictions - Top 5 validated miRNA/hsa-miR-124-3p - mirmap.xlsx"
+gdown --id 1C0uB2uhqDTj508PmMz5d6AwIk9_iTqzz -O "Predictions - Top 5 validated miRNA/hsa-miR-145-5p - Diana microT CDS.xlsx"
+gdown --id 1GrnOA6t2QAH01YTYdfA4V3zJsxl5za39 -O "Predictions - Top 5 validated miRNA/hsa-miR-145-5p - miRDB.xlsx"
+gdown --id 1Zfpeg_8fvnP4ny4w3dBCEFKDtcuzWm33 -O "Predictions - Top 5 validated miRNA/hsa-miR-145-5p - mirmap.xlsx"
+gdown --id 1YTuTNYQ7Q_Yk1gdux49PXySOJApwkA1g -O "Predictions - Top 5 validated miRNA/hsa-miR-155-5p - Diana microT CDS.xlsx"
+gdown --id 11Rtv6R_5ee4sNx9WXbtHzJt-On8qvaBU -O "Predictions - Top 5 validated miRNA/hsa-miR-155-5p - miRDB.xlsx"
+gdown --id 1hffHQNtzORAOIy4B9ksBtyQ-BZnnP_un -O "Predictions - Top 5 validated miRNA/hsa-miR-155-5p - mirmap.xlsx"
+
+echo "All files downloaded successfully."
